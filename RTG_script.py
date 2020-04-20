@@ -17,7 +17,8 @@ def cart2sph(x, y, z, ceval=ne.evaluate):
         ceval: backend to use:
               - eval :  pure Numpy
               - numexpr.evaluate:  Numexpr """
-    azimuth = np.rad2deg(ceval('arctan2(x,y)')) + 180  # switched x and y to align 0 with north and shift to 0-360
+    azimuth = np.rad2deg(ceval('arctan2(x,y)')) % 360  # switched x and y to align 0 with north and % to shift to 0-360
+                                            # use of % is a bit unique to python in -ve numbers, matlab should be similar
     xy2 = ceval('x**2 + y**2')
     elevation = np.rad2deg(ceval('arctan2(z, sqrt(xy2))'))  # gives inclination, with horizontal =0
     r = eval('sqrt(xy2 + z**2)')
@@ -30,15 +31,19 @@ def cart2sph(x, y, z, ceval=ne.evaluate):
 # 2) the array points are equidistant (this may be modified to allow for distance array to be added?)
 # 3) there is only one variable
 # TODO probably make this interactive either in GUI or script argument
-datafile = r'C:\Users\Valheran\PycharmProjects\RTGradients\testdatagrad_xcon.csv'
+datafile = r'C:\Users\Valheran\PycharmProjects\RTGradients\testdatahumpx.csv'
 
 # assumes datafile has x,y,z and Nprog as header names. If go to gui may be able to interactively set
 df = pd.read_csv(datafile, index_col=['x', 'y', 'z'], usecols=['x', 'y', 'z', 'Nprog'])
 
+# sort the array. assume z is in RL therefore ascending.   TODO perhaps this needs to be a flag
+Z_Asc = True # Flag for ascending or descending Z
+sorted = df.sort_values(['z', 'y', 'x'], ascending=[Z_Asc, True, True])
+
 # get unique values of the grid coords for determining shape and spacing
-z_val = df.index.get_level_values('z').unique()
-y_val = df.index.get_level_values('y').unique()
-x_val = df.index.get_level_values('x').unique()
+z_val = sorted.index.get_level_values('z').unique()
+y_val = sorted.index.get_level_values('y').unique()
+x_val = sorted.index.get_level_values('x').unique()
 
 # work out shape of data assuming grid is orthogonal to axes
 z_size = len(z_val)
@@ -46,12 +51,11 @@ y_size = len(y_val)
 x_size = len(x_val)
 
 # work out spacing in the array
-z_space = (z_val[0] - z_val[-1]) / (len(z_val) - 1)
-y_space = (y_val[0] - y_val[-1]) / (len(y_val) - 1)
-x_space = (x_val[0] - x_val[-1]) / (len(x_val) - 1)
 
-# sort the array. assume z is in RL therefore descending. TODO perhaps this needs to be a flag
-sorted = df.sort_values(['z', 'y', 'x'], ascending=[False, True, True])
+z_space = (z_val[-1] - z_val[0]) / (len(z_val) - 1)
+y_space = (y_val[-1] - y_val[0]) / (len(y_val) - 1)
+x_space = (x_val[-1] - x_val[0]) / (len(x_val) - 1)
+
 
 # reshape into ndarray
 Nprog_array = sorted.values.reshape(z_size, y_size, x_size)
